@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="CryptoVault Studio - Interactive Symmetric (AES) & Asymmetric (RSA) Cryptographic Key Generator, File Encryption Suite & Educational Lab." />
+  <title>CryptoVault Studio - Modern Encryption & Key Lab</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cyber: {
+              bg: '#0a0d14',
+              card: '#121824',
+              border: '#1f293d',
+              accent: '#00f0ff',
+              neonGreen: '#10b981',
+              neonPurple: '#a855f7',
+              neonAmber: '#f59e0b',
+            }
+          },
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- React 18, ReactDOM 18, Babel Standalone & Lucide Icons -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: #080b14;
+      background-image: 
+        radial-gradient(at 10% 10%, rgba(0, 240, 255, 0.05) 0px, transparent 50%),
+        radial-gradient(at 90% 90%, rgba(168, 85, 247, 0.05) 0px, transparent 50%),
+        radial-gradient(at 50% 50%, rgba(16, 185, 129, 0.04) 0px, transparent 50%);
+      min-height: 100vh;
+    }
+    .glass-panel {
+      background: rgba(18, 24, 38, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+    .glass-panel-glow-cyan {
+      background: rgba(18, 24, 38, 0.85);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      box-shadow: 0 0 25px -5px rgba(0, 240, 255, 0.18);
+    }
+    .glass-panel-glow-purple {
+      background: rgba(18, 24, 38, 0.85);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      box-shadow: 0 0 25px -5px rgba(168, 85, 247, 0.18);
+    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0d111c; }
+    ::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #374151; }
+  </style>
+</head>
+<body class="bg-[#080b14] text-slate-100 antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+  <div id="root"></div>
+
+  <!-- Standalone Transpiled Application Code -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // --- PEM & BUFFER UTILITIES ---
+    function bufferToHex(buffer) {
+      const byteArray = new Uint8Array(buffer);
+      return Array.from(byteArray).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function hexToBuffer(hexString) {
+      const cleanHex = hexString.replace(/\s+/g, '').toLowerCase();
+      if (cleanHex.length % 2 !== 0) throw new Error('Hex string must have an even length.');
+      const result = new Uint8Array(cleanHex.length / 2);
+      for (let i = 0; i < cleanHex.length; i += 2) {
+        result[i / 2] = parseInt(cleanHex.substring(i, i + 2), 16);
+      }
+      return result;
+    }
+
+    function bufferToBase64(buffer) {
+      const byteArray = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < byteArray.byteLength; i++) {
+        binary += String.fromCharCode(byteArray[i]);
+      }
+      return window.btoa(binary);
+    }
+
+    function base64ToBuffer(base64) {
+      const cleanBase64 = base64.trim();
+      const binary = window.atob(cleanBase64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    }
+
+    function exportToPem(buffer, type) {
+      const base64 = bufferToBase64(buffer);
+      const lineLength = 64;
+      let formattedBody = '';
+      for (let i = 0; i < base64.length; i += lineLength) {
+        formattedBody += base64.substring(i, i + lineLength) + '\n';
+      }
+      return `-----BEGIN ${type}-----\n${formattedBody}-----END ${type}-----`;
+    }
+
+    function pemToBuffer(pem) {
+      const lines = pem.trim().split('\n');
+      const base64Lines = lines.filter(line => !line.startsWith('-----'));
+      const base64String = base64Lines.join('').replace(/\s+/g, '');
+      return base64ToBuffer(base64String);
+    }
+
+    function downloadTextFile(filename, content, mimeType = 'text/plain') {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function formatBytes(bytes, decimals = 2) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const dm = decimals < 0 ? 0 : decimals;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+
+    // --- CRYPTO SYMMETRIC (AES-GCM) ---
+    async function generateAESKey(length) {
+      const key = await window.crypto.subtle.generateKey(
+        { name: 'AES-GCM', length: length },
+        true,
+        ['encrypt', 'decrypt']
+      );
+      const rawBuffer = await window.crypto.subtle.exportKey('raw', key);
+      return { cryptoKey: key, hexKey: bufferToHex(rawBuffer), base64Key: bufferToBase64(rawBuffer) };
+    }
+
+    async function deriveAESKeyFromPassphrase(passphrase, length, existingSaltHex) {
+      const enc = new TextEncoder();
+      const passwordBuffer = enc.encode(passphrase);
+      const baseKey = await window.crypto.subtle.importKey(
+        'raw', passwordBuffer, { name: 'PBKDF2' }, false, ['deriveKey', 'deriveBits']
+      );
+
+      let salt;
+      if (existingSaltHex && existingSaltHex.length >= 32) {
+        salt = hexToBuffer(existingSaltHex);
+      } else {
+        salt = window.crypto.getRandomValues(new Uint8Array(16));
+      }
+
+      const derivedKey = await window.crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: salt, iterations: 100000, hash: 'SHA-256' },
+        baseKey,
+        { name: 'AES-GCM', length: length },
+        true,
+        ['encrypt', 'decrypt']
+      );
+
+      const rawBuffer = await window.crypto.subtle.exportKey('raw', derivedKey);
+      return { cryptoKey: derivedKey, saltHex: bufferToHex(salt.buffer), hexKey: bufferToHex(rawBuffer), base64Key: bufferToBase64(rawBuffer) };
+    }
+
+    async function importRawAESKey(rawKeyHexOrBase64, length) {
+      let keyBuffer;
+      const cleanInput = rawKeyHexOrBase64.trim();
+      if (/^[0-9a-fA-F]+$/.test(cleanInput)) {
+        keyBuffer = hexToBuffer(cleanInput);
+      } else {
+        keyBuffer = base64ToBuffer(cleanInput);
+      }
+      return await window.crypto.subtle.importKey(
+        'raw', keyBuffer, { name: 'AES-GCM', length: length }, true, ['encrypt', 'decrypt']
+      );
+    }
+
+    async function encryptAES(data, key) {
+      const enc = new TextEncoder();
+      const inputBuffer = typeof data === 'string' ? enc.encode(data) : data;
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+      const cipherBuffer = await window.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv, tagLength: 128 },
+        key,
+        inputBuffer
+      );
+
+      const cipherBytes = new Uint8Array(cipherBuffer);
+      const combined = new Uint8Array(12 + cipherBytes.byteLength);
+      combined.set(iv, 0);
+      combined.set(cipherBytes, 12);
+
+      const ciphertextHex = bufferToHex(cipherBuffer);
+      const ciphertextBase64 = bufferToBase64(cipherBuffer);
+      const ivHex = bufferToHex(iv.buffer);
+
+      let tagHex = '';
+      if (cipherBytes.byteLength >= 16) {
+        tagHex = bufferToHex(cipherBytes.slice(cipherBytes.byteLength - 16).buffer);
+      }
+
+      return {
+        ciphertextBase64, ciphertextHex, ivHex, tagHex,
+        combinedPackageBase64: bufferToBase64(combined.buffer)
+      };
+    }
+
+    async function decryptAES(ciphertextBase64OrHex, ivHexOrBase64, key) {
+      if (!key) throw new Error('AES Key is required for decryption.');
+
+      let inputBytes;
+      if (typeof ciphertextBase64OrHex === 'string') {
+        const clean = ciphertextBase64OrHex.trim().replace(/\s+/g, '');
+        if (!clean) throw new Error('Ciphertext payload is empty.');
+        if (/^[0-9a-fA-F]+$/.test(clean)) {
+          inputBytes = hexToBuffer(clean);
+        } else {
+          inputBytes = base64ToBuffer(clean);
+        }
+      } else {
+        inputBytes = ciphertextBase64OrHex;
+      }
+
+      let ivBytes = null;
+      let cipherBytes = null;
+
+      if (ivHexOrBase64 && ivHexOrBase64.trim() !== '') {
+        const cleanIV = ivHexOrBase64.trim().replace(/\s+/g, '');
+        if (/^[0-9a-fA-F]+$/.test(cleanIV)) {
+          ivBytes = hexToBuffer(cleanIV);
+        } else {
+          ivBytes = base64ToBuffer(cleanIV);
+        }
+
+        if (
+          inputBytes.byteLength > 12 &&
+          ivBytes.byteLength === 12 &&
+          bufferToHex(inputBytes.slice(0, 12).buffer) === bufferToHex(ivBytes.buffer)
+        ) {
+          cipherBytes = inputBytes.slice(12);
+        } else {
+          cipherBytes = inputBytes;
+        }
+      } else {
+        if (inputBytes.byteLength <= 12) {
+          throw new Error('Payload too short. Concatenated package must be at least 13 bytes.');
+        }
+        ivBytes = inputBytes.slice(0, 12);
+        cipherBytes = inputBytes.slice(12);
+      }
+
+      try {
+        const decryptedBuffer = await window.crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: ivBytes, tagLength: 128 },
+          key,
+          cipherBytes
+        );
+        return new TextDecoder().decode(decryptedBuffer);
+      } catch (err) {
+        if (ivHexOrBase64 && inputBytes.byteLength > 12) {
+          try {
+            const fallbackIV = inputBytes.slice(0, 12);
+            const fallbackCipher = inputBytes.slice(12);
+            const decryptedBuffer = await window.crypto.subtle.decrypt(
+              { name: 'AES-GCM', iv: fallbackIV, tagLength: 128 },
+              key,
+              fallbackCipher
+            );
+            return new TextDecoder().decode(decryptedBuffer);
+          } catch {}
+        }
+        throw new Error('Decryption failed! Verify that key is correct, IV matches, and payload is uncorrupted.');
+      }
+    }
+
+    async function decryptCombinedPackage(combinedBase64, key) {
+      return await decryptAES(combinedBase64, undefined, key);
+    }
+
+    // --- CRYPTO ASYMMETRIC (RSA-OAEP) ---
+    async function generateRSAKeyPair(bitLength) {
+      const keyPair = await window.crypto.subtle.generateKey(
+        {
+          name: 'RSA-OAEP',
+          modulusLength: bitLength,
+          publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+          hash: 'SHA-256',
+        },
+        true,
+        ['encrypt', 'decrypt']
+      );
+
+      const spkiBuffer = await window.crypto.subtle.exportKey('spki', keyPair.publicKey);
+      const pkcs8Buffer = await window.crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+
+      return {
+        publicKey: keyPair.publicKey,
+        privateKey: keyPair.privateKey,
+        publicKeyPem: exportToPem(spkiBuffer, 'PUBLIC KEY'),
+        privateKeyPem: exportToPem(pkcs8Buffer, 'PRIVATE KEY'),
+        bitLength,
+      };
+    }
+
+    async function importRSAPublicKeyPem(pem) {
+      const buffer = pemToBuffer(pem);
+      return await window.crypto.subtle.importKey(
+        'spki', buffer, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['encrypt']
+      );
+    }
+
+    async function importRSAPrivateKeyPem(pem) {
+      const buffer = pemToBuffer(pem);
+      return await window.crypto.subtle.importKey(
+        'pkcs8', buffer, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['decrypt']
+      );
+    }
+
+    function getRSAMaxPlaintextBytes(bitLength) {
+      return (bitLength / 8) - 66; // (bitLength/8) - 2*32 - 2
+    }
+
+    async function encryptRSA(plaintext, publicKey, forceHybrid = false, bitLength = 2048) {
+      const enc = new TextEncoder();
+      const inputBuffer = enc.encode(plaintext);
+      const maxBytes = getRSAMaxPlaintextBytes(bitLength);
+      const useHybrid = forceHybrid || (inputBuffer.byteLength > maxBytes);
+
+      if (!useHybrid) {
+        const cipherBuffer = await window.crypto.subtle.encrypt(
+          { name: 'RSA-OAEP' }, publicKey, inputBuffer
+        );
+        return {
+          ciphertextBase64: bufferToBase64(cipherBuffer),
+          ciphertextHex: bufferToHex(cipherBuffer),
+          isHybrid: false,
+        };
+      } else {
+        const aesRes = await generateAESKey(256);
+        const aesEncRes = await encryptAES(plaintext, aesRes.cryptoKey);
+        const rawAesBuffer = await window.crypto.subtle.exportKey('raw', aesRes.cryptoKey);
+        const encryptedAESKeyBuffer = await window.crypto.subtle.encrypt(
+          { name: 'RSA-OAEP' }, publicKey, rawAesBuffer
+        );
+
+        const encryptedAESKeyBase64 = bufferToBase64(encryptedAESKeyBuffer);
+        const combinedPackageJson = JSON.stringify({
+          mode: 'RSA-AES-HYBRID',
+          encryptedKey: encryptedAESKeyBase64,
+          iv: aesEncRes.ivHex,
+          ciphertext: aesEncRes.ciphertextBase64,
+        }, null, 2);
+
+        return {
+          ciphertextBase64: aesEncRes.ciphertextBase64,
+          ciphertextHex: aesEncRes.ciphertextHex,
+          isHybrid: true,
+          encryptedAESKeyBase64,
+          ivHex: aesEncRes.ivHex,
+          combinedPackageJson,
+        };
+      }
+    }
+
+    async function decryptRSA(ciphertextBase64OrJson, privateKey) {
+      const cleanInput = ciphertextBase64OrJson.trim();
+      if (cleanInput.startsWith('{') && cleanInput.includes('RSA-AES-HYBRID')) {
+        const packageObj = JSON.parse(cleanInput);
+        const encryptedKeyBuffer = base64ToBuffer(packageObj.encryptedKey);
+        const rawAesBuffer = await window.crypto.subtle.decrypt(
+          { name: 'RSA-OAEP' }, privateKey, encryptedKeyBuffer
+        );
+        const aesCryptoKey = await window.crypto.subtle.importKey(
+          'raw', rawAesBuffer, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+        );
+        return await decryptAES(packageObj.ciphertext, packageObj.iv, aesCryptoKey);
+      }
+
+      let cipherBuffer = base64ToBuffer(cleanInput);
+      const decryptedBuffer = await window.crypto.subtle.decrypt(
+        { name: 'RSA-OAEP' }, privateKey, cipherBuffer
+      );
+      return new TextDecoder().decode(decryptedBuffer);
+    }
+
+    // --- UI COMPONENTS ---
+
+    // File Dropzone Component
+    function FileDropzone({ onFileLoaded, currentFileName, onClear, accentColor = 'cyan' }) {
+      const [isDragging, setIsDragging] = useState(false);
+      const [fileDetails, setFileDetails] = useState(null);
+      const fileInputRef = useRef(null);
+
+      const processFile = (file) => {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setFileDetails({ name: file.name, size: file.size });
+          onFileLoaded(e.target.result || '', file.name);
+        };
+        reader.readAsText(file);
+      };
+
+      return (
+        <div className="w-full">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={(e) => e.target.files?.[0] && processFile(e.target.files[0])}
+            accept=".txt,.text,.enc,.json,.key,.pem"
+            className="hidden"
+          />
+
+          {(fileDetails || currentFileName) ? (
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 shadow-inner">
+              <div className="flex items-center space-x-3 truncate">
+                <div className="p-2 rounded-lg bg-slate-800 text-cyan-400">
+                  <i data-lucide="file-text" className="w-5 h-5"></i>
+                </div>
+                <div className="truncate">
+                  <p className="text-xs font-semibold text-slate-200 truncate">
+                    {fileDetails?.name || currentFileName}
+                  </p>
+                  {fileDetails && (
+                    <p className="text-[11px] text-slate-400 font-mono">
+                      {formatBytes(fileDetails.size)}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => { setFileDetails(null); if (onClear) onClear(); }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 border border-transparent hover:border-rose-900 transition-all"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+              onDrop={(e) => { e.preventDefault(); setIsDragging(false); e.dataTransfer.files?.[0] && processFile(e.dataTransfer.files[0]); }}
+              onClick={() => fileInputRef.current?.click()}
+              className={`group flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
+                isDragging ? 'border-cyan-400 bg-cyan-950/20' : 'border-slate-800 bg-slate-900/40 hover:border-slate-700 hover:bg-slate-900/80'
+              }`}
+            >
+              <div className="p-3 rounded-full bg-slate-800/80 text-cyan-400 group-hover:scale-110 transition-transform">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+              </div>
+              <p className="mt-2 text-xs font-medium text-slate-300">
+                Drag & drop text file (<span className="font-mono text-cyan-400">.txt</span>) or <span className="underline decoration-cyan-500/50">browse</span>
+              </p>
+              <p className="text-[11px] text-slate-500 mt-1">Supports plain text, encrypted .txt files, or PEM keys</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Hex Viewer Component
+    function HexViewer({ hexData, ivHex, tagHex, maxBytesToShow = 256 }) {
+      const parsedData = useMemo(() => {
+        if (!hexData) return null;
+        const cleanHex = hexData.replace(/\s+/g, '');
+        try {
+          const buffer = hexToBuffer(cleanHex.substring(0, maxBytesToShow * 2));
+          const totalByteCount = Math.floor(cleanHex.length / 2);
+          const rows = [];
+          const ivByteLength = ivHex ? Math.floor(ivHex.length / 2) : 0;
+          const tagByteLength = tagHex ? Math.floor(tagHex.length / 2) : 0;
+          const tagStartByteIndex = totalByteCount - tagByteLength;
+
+          for (let i = 0; i < buffer.length; i += 16) {
+            const offsetHex = i.toString(16).padStart(4, '0').toUpperCase();
+            const chunk = buffer.slice(i, i + 16);
+            const bytes = Array.from(chunk).map((byte, idx) => {
+              const globalIdx = i + idx;
+              const hex = byte.toString(16).padStart(2, '0').toUpperCase();
+              const char = byte >= 32 && byte <= 126 ? String.fromCharCode(byte) : '.';
+              return { hex, isIV: globalIdx < ivByteLength, isTag: tagByteLength > 0 && globalIdx >= tagStartByteIndex, char };
+            });
+            rows.push({ offset: offsetHex, bytes });
+          }
+          return { rows, totalByteCount, truncated: totalByteCount > maxBytesToShow };
+        } catch { return null; }
+      }, [hexData, ivHex, tagHex, maxBytesToShow]);
+
+      if (!parsedData) return null;
+
+      return (
+        <div className="w-full bg-slate-950 rounded-xl border border-slate-800 p-3.5 font-mono text-xs overflow-x-auto">
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-[11px] text-slate-400">
+            <span className="font-semibold text-slate-300">Raw Binary Hex Inspector ({parsedData.totalByteCount} Bytes)</span>
+            <div className="flex items-center space-x-3">
+              {ivHex && <span className="text-sky-300">IV (12B)</span>}
+              {tagHex && <span className="text-rose-400">GCM Tag (16B)</span>}
+              <span className="text-purple-300">Ciphertext Payload</span>
+            </div>
+          </div>
+          <div className="space-y-1">
+            {parsedData.rows.map((row, idx) => (
+              <div key={idx} className="flex items-center space-x-4 hover:bg-slate-900/80 px-1 py-0.5 rounded">
+                <span className="text-slate-600 font-bold select-none w-12 text-right">0x{row.offset}</span>
+                <div className="flex items-center space-x-1.5 flex-1">
+                  {row.bytes.map((b, bIdx) => (
+                    <span key={bIdx} className={`px-1 py-0.5 rounded border text-center text-[11px] ${
+                      b.isIV ? 'text-sky-300 bg-sky-950/40 border-sky-800/50' : b.isTag ? 'text-rose-400 bg-rose-950/40 border-rose-800/50' : 'text-purple-300 bg-purple-950/20 border-purple-900/30'
+                    }`}>
+                      {b.hex}
+                    </span>
+                  ))}
+                </div>
+                <span className="text-slate-500 border-l border-slate-800 pl-3 tracking-widest text-[11px]">
+                  {row.bytes.map(b => b.char).join('')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // --- MAIN APP COMPONENT ---
+    function App() {
+      const [activeTab, setActiveTab] = useState('symmetric');
+      const [vaultKeys, setVaultKeys] = useState(() => {
+        const saved = localStorage.getItem('cryptovault_keys');
+        if (saved) { try { return JSON.parse(saved); } catch { return []; } }
+        return [];
+      });
+
+      const [toast, setToast] = useState(null);
+
+      useEffect(() => {
+        if (window.lucide) window.lucide.createIcons();
+      });
+
+      useEffect(() => {
+        localStorage.setItem('cryptovault_keys', JSON.stringify(vaultKeys));
+      }, [vaultKeys]);
+
+      const showToast = (type, title, message) => {
+        setToast({ id: Date.now().toString(), type, title, message });
+        setTimeout(() => setToast(null), 4000);
+      };
+
+      const handleSaveToVault = (newItem) => {
+        setVaultKeys(prev => [newItem, ...prev.filter(k => k.id !== newItem.id)]);
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col bg-[#080b14] text-slate-100">
+          
+          {/* Header Navbar */}
+          <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-[#080b14]/90 backdrop-blur-xl">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between h-16">
+                
+                <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('symmetric')}>
+                  <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                  </div>
+                  <div>
+                    <span className="font-bold text-lg tracking-wider text-white font-mono">CRYPTO<span className="text-cyan-400">VAULT</span></span>
+                    <span className="ml-2 px-1.5 py-0.5 text-[10px] font-semibold tracking-wider uppercase rounded bg-cyan-950 text-cyan-400 border border-cyan-800">
+                      STUDIO
+                    </span>
+                  </div>
+                </div>
+
+                <nav className="flex items-center space-x-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800">
+                  <button
+                    onClick={() => setActiveTab('symmetric')}
+                    className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
+                      activeTab === 'symmetric' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Symmetric (AES)
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('asymmetric')}
+                    className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
+                      activeTab === 'asymmetric' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Asymmetric (RSA)
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('vault')}
+                    className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
+                      activeTab === 'vault' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Key Vault ({vaultKeys.length})
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('education')}
+                    className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
+                      activeTab === 'education' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Learn Lab
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Content Workspace */}
+          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+            
+            {activeTab === 'symmetric' && (
+              <SymmetricSuite onSaveToVault={handleSaveToVault} showToast={showToast} />
+            )}
+
+            {activeTab === 'asymmetric' && (
+              <AsymmetricSuite onSaveToVault={handleSaveToVault} showToast={showToast} />
+            )}
+
+            {activeTab === 'vault' && (
+              <KeyVaultSuite keys={vaultKeys} setVaultKeys={setVaultKeys} showToast={showToast} />
+            )}
+
+            {activeTab === 'education' && (
+              <EducationSuite />
+            )}
+
+          </main>
+
+          {/* Toast Banner */}
+          {toast && (
+            <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl border bg-slate-900/95 shadow-2xl max-w-sm border-cyan-500/40">
+              <h4 className="text-xs font-semibold text-white">{toast.title}</h4>
+              <p className="text-xs text-slate-300 mt-1">{toast.message}</p>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    // --- TAB IMPLEMENTATIONS ---
+
+    // 1. SYMMETRIC SUITE
+    function SymmetricSuite({ onSaveToVault, showToast }) {
+      const [bitLength, setBitLength] = useState(256);
+      const [keySource, setKeySource] = useState('random');
+      const [passphrase, setPassphrase] = useState('');
+      const [activeKey, setActiveKey] = useState(null);
+      const [hexKey, setHexKey] = useState('');
+      const [base64Key, setBase64Key] = useState('');
+
+      const [plainInput, setPlainInput] = useState('Hello! Confidential document encrypted with AES-GCM 256-bit cryptography.');
+      const [encryptedResult, setEncryptedResult] = useState(null);
+
+      const [decryptInput, setDecryptInput] = useState('');
+      const [decryptIV, setDecryptIV] = useState('');
+      const [decryptKeyHex, setDecryptKeyHex] = useState('');
+      const [decryptedOutput, setDecryptedOutput] = useState('');
+
+      const handleGenerateKey = async () => {
+        try {
+          if (keySource === 'random') {
+            const res = await generateAESKey(bitLength);
+            setActiveKey(res.cryptoKey); setHexKey(res.hexKey); setBase64Key(res.base64Key);
+            setDecryptKeyHex(res.hexKey);
+            showToast('success', 'AES Key Generated', `Generated cryptographically random AES-${bitLength} key.`);
+          } else {
+            if (!passphrase) { showToast('error', 'Passphrase Required', 'Enter a passphrase.'); return; }
+            const res = await deriveAESKeyFromPassphrase(passphrase, bitLength);
+            setActiveKey(res.cryptoKey); setHexKey(res.hexKey); setBase64Key(res.base64Key);
+            setDecryptKeyHex(res.hexKey);
+            showToast('success', 'Passphrase Derived (PBKDF2)', `Derived AES-${bitLength} key.`);
+          }
+        } catch (err) { showToast('error', 'Key Gen Error', err.message); }
+      };
+
+      const handleEncrypt = async () => {
+        if (!plainInput) { showToast('error', 'Input Empty', 'Enter text or drop a file.'); return; }
+        let keyToUse = activeKey;
+        if (!keyToUse) {
+          const res = await generateAESKey(bitLength);
+          keyToUse = res.cryptoKey; setActiveKey(res.cryptoKey); setHexKey(res.hexKey); setBase64Key(res.base64Key);
+        }
+        try {
+          const res = await encryptAES(plainInput, keyToUse);
+          setEncryptedResult(res);
+          setDecryptInput(res.combinedPackageBase64);
+          setDecryptIV(res.ivHex);
+          showToast('success', 'Encryption Complete', 'Encrypted with 96-bit IV & 128-bit tag.');
+        } catch (err) { showToast('error', 'Encryption Failed', err.message); }
+      };
+
+      const handleDecrypt = async () => {
+        if (!decryptInput) { showToast('error', 'Missing Input', 'Paste ciphertext.'); return; }
+        try {
+          let keyToUse = activeKey;
+          if (!keyToUse && decryptKeyHex) {
+            keyToUse = await importRawAESKey(decryptKeyHex, bitLength);
+          }
+          if (!keyToUse) { showToast('error', 'Missing Key', 'Provide matching AES key.'); return; }
+
+          let text = '';
+          if (!decryptIV) {
+            text = await decryptCombinedPackage(decryptInput, keyToUse);
+          } else {
+            text = await decryptAES(decryptInput, decryptIV, keyToUse);
+          }
+          setDecryptedOutput(text);
+          showToast('success', 'Decryption Successful', 'GCM tag verified.');
+        } catch (err) { showToast('error', 'Decryption Failed', err.message); }
+      };
+
+      return (
+        <div className="space-y-8">
+          <div className="glass-panel-glow-cyan p-6 rounded-2xl">
+            <h2 className="text-xl font-bold text-white font-mono">Symmetric Encryption Suite (AES-GCM)</h2>
+            <p className="text-xs text-slate-300 mt-1">High-performance authenticated encryption with hardware acceleration.</p>
+          </div>
+
+          {/* Key Management */}
+          <div className="glass-panel p-6 rounded-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <h3 className="text-sm font-bold text-white uppercase">AES Key Generator</h3>
+              <div className="flex space-x-2">
+                {[128, 192, 256].map(b => (
+                  <button key={b} onClick={() => setBitLength(b)} className={`px-3 py-1 rounded text-xs font-mono ${bitLength === b ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'text-slate-400'}`}>
+                    {b}-bit
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div onClick={() => setKeySource('random')} className={`p-4 rounded-xl border cursor-pointer ${keySource === 'random' ? 'bg-cyan-950/20 border-cyan-500/40' : 'bg-slate-900/40 border-slate-800'}`}>
+                <input type="radio" checked={keySource === 'random'} readOnly />
+                <span className="ml-2 text-xs font-semibold text-white">Random Key Generator</span>
+              </div>
+              <div onClick={() => setKeySource('passphrase')} className={`p-4 rounded-xl border cursor-pointer ${keySource === 'passphrase' ? 'bg-cyan-950/20 border-cyan-500/40' : 'bg-slate-900/40 border-slate-800'}`}>
+                <input type="radio" checked={keySource === 'passphrase'} readOnly />
+                <span className="ml-2 text-xs font-semibold text-white">PBKDF2 Passphrase Derivation</span>
+              </div>
+            </div>
+
+            {keySource === 'passphrase' && (
+              <input
+                type="password"
+                value={passphrase}
+                onChange={e => setPassphrase(e.target.value)}
+                placeholder="Enter secret passphrase..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs font-mono text-white"
+              />
+            )}
+
+            <button onClick={handleGenerateKey} className="px-5 py-2.5 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs">
+              Generate AES-{bitLength} Key
+            </button>
+
+            {hexKey && (
+              <div className="p-3 rounded-xl bg-slate-950 border border-cyan-900/40 space-y-2">
+                <div className="flex items-center justify-between text-xs text-cyan-300 font-bold">
+                  <span>Active AES-{bitLength} Hex Key:</span>
+                  <button onClick={() => { onSaveToVault({ id: 'aes-' + Date.now(), name: `AES-${bitLength} Key`, algorithm: `AES-${bitLength}`, type: 'symmetric', createdAt: Date.now(), rawHex: hexKey, bitLength }); showToast('success', 'Saved', 'Saved to vault.'); }} className="px-2 py-1 rounded bg-cyan-950 border border-cyan-800 text-[10px]">
+                    Save to Vault
+                  </button>
+                </div>
+                <p className="font-mono text-xs text-cyan-300 break-all select-all">{hexKey}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Workstation */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            {/* Encrypt Panel */}
+            <div className="glass-panel p-6 rounded-2xl space-y-4">
+              <h3 className="text-sm font-bold text-white uppercase border-b border-slate-800 pb-3">Encrypt Plaintext / File</h3>
+              <FileDropzone onFileLoaded={(c) => setPlainInput(c)} />
+              <textarea
+                rows={4}
+                value={plainInput}
+                onChange={e => setPlainInput(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-slate-100"
+              />
+              <button onClick={handleEncrypt} className="w-full py-3 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs">
+                Encrypt Data
+              </button>
+
+              {encryptedResult && (
+                <div className="space-y-2 pt-4 border-t border-slate-800">
+                  <span className="text-xs font-bold text-purple-300">Ciphertext Result (Combined Package):</span>
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-purple-300 break-all max-h-32 overflow-y-auto select-all">
+                    {encryptedResult.combinedPackageBase64}
+                  </div>
+                  <button onClick={() => downloadTextFile('encrypted.enc.txt', encryptedResult.combinedPackageBase64)} className="w-full py-2 rounded-lg bg-slate-900 border border-slate-800 text-xs font-medium">
+                    Download Encrypted .txt
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Decrypt Panel */}
+            <div className="glass-panel p-6 rounded-2xl space-y-4">
+              <h3 className="text-sm font-bold text-white uppercase border-b border-slate-800 pb-3">Decrypt Ciphertext / File</h3>
+              <FileDropzone onFileLoaded={(c) => setDecryptInput(c)} />
+              <textarea
+                rows={4}
+                value={decryptInput}
+                onChange={e => setDecryptInput(e.target.value)}
+                placeholder="Paste combined package or ciphertext..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-purple-300"
+              />
+              <button onClick={handleDecrypt} className="w-full py-3 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs">
+                Decrypt Data
+              </button>
+
+              {decryptedOutput && (
+                <div className="space-y-2 pt-4 border-t border-slate-800">
+                  <span className="text-xs font-bold text-emerald-400">Restored Plaintext:</span>
+                  <div className="p-3 rounded-xl bg-slate-950 border border-emerald-900/40 font-mono text-xs text-slate-100 max-h-32 overflow-y-auto select-all">
+                    {decryptedOutput}
+                  </div>
+                  <button onClick={() => downloadTextFile('decrypted.txt', decryptedOutput)} className="w-full py-2 rounded-lg bg-slate-900 border border-slate-800 text-xs font-medium">
+                    Download Decrypted .txt
+                  </button>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      );
+    }
+
+    // 2. ASYMMETRIC SUITE
+    function AsymmetricSuite({ onSaveToVault, showToast }) {
+      const [rsaBits, setRsaBits] = useState(2048);
+      const [pubKeyObj, setPubKeyObj] = useState(null);
+      const [privKeyObj, setPrivKeyObj] = useState(null);
+      const [pubKeyPem, setPubKeyPem] = useState('');
+      const [privKeyPem, setPrivKeyPem] = useState('');
+
+      const [plainInput, setPlainInput] = useState('RSA public key infrastructure protects digital signatures and HTTPS handshakes.');
+      const [encryptedResult, setEncryptedResult] = useState(null);
+      const [decryptInput, setDecryptInput] = useState('');
+      const [decryptedOutput, setDecryptedOutput] = useState('');
+
+      const handleGenerateKeypair = async () => {
+        try {
+          const res = await generateRSAKeyPair(rsaBits);
+          setPubKeyObj(res.publicKey); setPrivKeyObj(res.privateKey);
+          setPubKeyPem(res.publicKeyPem); setPrivKeyPem(res.privateKeyPem);
+          showToast('success', 'RSA Keypair Generated', `Generated ${rsaBits}-bit RSA key pair.`);
+        } catch (err) { showToast('error', 'Gen Error', err.message); }
+      };
+
+      const handleEncrypt = async () => {
+        if (!plainInput) { showToast('error', 'Input Empty', 'Enter text.'); return; }
+        let pubKey = pubKeyObj;
+        if (!pubKey && pubKeyPem) { pubKey = await importRSAPublicKeyPem(pubKeyPem); }
+        if (!pubKey) {
+          const res = await generateRSAKeyPair(rsaBits);
+          pubKey = res.publicKey; setPubKeyObj(res.publicKey); setPrivKeyObj(res.privateKey);
+          setPubKeyPem(res.publicKeyPem); setPrivKeyPem(res.privateKeyPem);
+        }
+        try {
+          const res = await encryptRSA(plainInput, pubKey, false, rsaBits);
+          setEncryptedResult(res);
+          setDecryptInput(res.isHybrid ? res.combinedPackageJson : res.ciphertextBase64);
+          showToast('success', res.isHybrid ? 'Hybrid Encrypted (AES+RSA)' : 'RSA Encrypted', 'Public key encryption complete.');
+        } catch (err) { showToast('error', 'Encrypt Error', err.message); }
+      };
+
+      const handleDecrypt = async () => {
+        if (!decryptInput) { showToast('error', 'Missing Ciphertext', 'Paste RSA ciphertext.'); return; }
+        let privKey = privKeyObj;
+        if (!privKey && privKeyPem) { privKey = await importRSAPrivateKeyPem(privKeyPem); }
+        if (!privKey) { showToast('error', 'Missing Private Key', 'Provide matching private key.'); return; }
+
+        try {
+          const text = await decryptRSA(decryptInput, privKey);
+          setDecryptedOutput(text);
+          showToast('success', 'RSA Decryption Successful', 'Private key decrypted payload.');
+        } catch (err) { showToast('error', 'Decrypt Error', err.message); }
+      };
+
+      return (
+        <div className="space-y-8">
+          <div className="glass-panel-glow-purple p-6 rounded-2xl">
+            <h2 className="text-xl font-bold text-white font-mono">Asymmetric Encryption Suite (RSA-OAEP)</h2>
+            <p className="text-xs text-slate-300 mt-1">Public Key Encryption & Automated Hybrid AES Wrapping for files.</p>
+          </div>
+
+          <div className="glass-panel p-6 rounded-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <h3 className="text-sm font-bold text-white uppercase">RSA Key Pair Generator</h3>
+              <div className="flex space-x-2">
+                {[2048, 3072].map(b => (
+                  <button key={b} onClick={() => setRsaBits(b)} className={`px-3.5 py-1.5 rounded text-xs font-mono ${rsaBits === b ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'text-slate-400'}`}>
+                    RSA-{b}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={handleGenerateKeypair} className="px-5 py-2.5 rounded-xl bg-purple-600 text-white font-bold text-xs">
+              Generate RSA Key Pair
+            </button>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <textarea rows={5} value={pubKeyPem} onChange={e => setPubKeyPem(e.target.value)} placeholder="-----BEGIN PUBLIC KEY-----" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[11px] font-mono text-purple-200" />
+              <textarea rows={5} value={privKeyPem} onChange={e => setPrivKeyPem(e.target.value)} placeholder="-----BEGIN PRIVATE KEY-----" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[11px] font-mono text-amber-200" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="glass-panel p-6 rounded-2xl space-y-4">
+              <h3 className="text-sm font-bold text-white uppercase border-b border-slate-800 pb-3">Encrypt with Public Key</h3>
+              <FileDropzone onFileLoaded={(c) => setPlainInput(c)} />
+              <textarea rows={4} value={plainInput} onChange={e => setPlainInput(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono" />
+              <button onClick={handleEncrypt} className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold text-xs">
+                Encrypt Data
+              </button>
+
+              {encryptedResult && (
+                <div className="space-y-2 pt-4 border-t border-slate-800">
+                  <span className="text-xs font-bold text-purple-300">Result ({encryptedResult.isHybrid ? 'Hybrid Package' : 'Base64'}):</span>
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-purple-300 break-all max-h-32 overflow-y-auto select-all">
+                    {encryptedResult.isHybrid ? encryptedResult.combinedPackageJson : encryptedResult.ciphertextBase64}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="glass-panel p-6 rounded-2xl space-y-4">
+              <h3 className="text-sm font-bold text-white uppercase border-b border-slate-800 pb-3">Decrypt with Private Key</h3>
+              <FileDropzone onFileLoaded={(c) => setDecryptInput(c)} />
+              <textarea rows={4} value={decryptInput} onChange={e => setDecryptInput(e.target.value)} placeholder="Paste RSA ciphertext or hybrid JSON package..." className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-amber-200" />
+              <button onClick={handleDecrypt} className="w-full py-3 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs">
+                Decrypt Data
+              </button>
+
+              {decryptedOutput && (
+                <div className="space-y-2 pt-4 border-t border-slate-800">
+                  <span className="text-xs font-bold text-emerald-400">Restored Plaintext:</span>
+                  <div className="p-3 rounded-xl bg-slate-950 border border-emerald-900/40 font-mono text-xs text-slate-100 max-h-32 overflow-y-auto select-all">
+                    {decryptedOutput}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 3. KEY VAULT SUITE
+    function KeyVaultSuite({ keys, setVaultKeys, showToast }) {
+      return (
+        <div className="space-y-6">
+          <div className="glass-panel-glow-cyan p-6 rounded-2xl">
+            <h2 className="text-xl font-bold text-white font-mono">Key Repository ({keys.length} Keys)</h2>
+            <p className="text-xs text-slate-300 mt-1">Manage and export all generated AES and RSA keys.</p>
+          </div>
+
+          {keys.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {keys.map(k => (
+                <div key={k.id} className="glass-panel p-5 rounded-2xl space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-white">{k.name}</span>
+                    <button onClick={() => setVaultKeys(keys.filter(x => x.id !== k.id))} className="text-rose-400 text-xs">Delete</button>
+                  </div>
+                  {k.rawHex && <p className="font-mono text-xs text-cyan-300 break-all bg-slate-950 p-2 rounded">{k.rawHex}</p>}
+                  {k.publicKeyPem && <p className="font-mono text-[10px] text-purple-300 truncate bg-slate-950 p-2 rounded">{k.publicKeyPem}</p>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="glass-panel p-12 text-center text-xs text-slate-500">No keys saved in vault yet.</div>
+          )}
+        </div>
+      );
+    }
+
+    // 4. EDUCATION SUITE
+    function EducationSuite() {
+      return (
+        <div className="space-y-8">
+          <div className="glass-panel-glow-purple p-6 rounded-2xl">
+            <h2 className="text-xl font-bold text-white font-mono">Educational Cryptography Suite</h2>
+            <p className="text-xs text-slate-300 mt-1">Learn symmetric and asymmetric algorithms through visual diagrams.</p>
+          </div>
+
+          <div className="glass-panel p-6 rounded-2xl space-y-4">
+            <h3 className="text-sm font-bold text-white uppercase border-b border-slate-800 pb-3">AES-GCM Workflow</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">1. Plaintext Input</div>
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">2. Key + 96-bit IV</div>
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">3. Galois Counter Engine</div>
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">4. Ciphertext + Tag</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Render React App
+    const rootElement = document.getElementById('root');
+    ReactDOM.createRoot(rootElement).render(<App />);
+  </script>
+</body>
+</html>
